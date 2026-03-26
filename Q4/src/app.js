@@ -4,10 +4,25 @@
 
 
 function loadSession() {
-    const raw = sessionStorage.getItem("session");
-    const session = JSON.parse(raw);          // No try/catch
-    return session;                            // No field validation
-}
+   try {
+        const sessionStr = sessionStorage.getItem('userSession');
+        if (!sessionStr) return null;
+        const session = JSON.parse(sessionStr);
+
+        const hasUserId = typeof session.userId === 'string' && session.userId.trim() !== '';
+        const hasRole = typeof session.role === 'string' && session.role.trim() !== '';
+        const hasDisplayName = typeof session.displayName === 'string' && session.displayName.trim() !== '';
+    if (hasUserId && hasRole && hasDisplayName) {
+            return session; 
+        } else {
+            console.error("Session missing required fields.");
+            return null; 
+        }
+    } catch (e) {
+        console.error("Failed to parse session data:", e);
+        return null;
+    }
+} 
 
 
 //  Q4.A  Status Message Rendering
@@ -18,7 +33,10 @@ function loadSession() {
 
 
 function renderStatusMessage(containerElement, message) {
-    containerElement.innerHTML = "<p>" + message + "</p>";   // UNSAFE
+    containerElement.textContent = '';
+    const p = document.createElement('p');
+    p.textContent = message; // Append the safe paragraph to the container instead of the unsafe one 
+    containerElement.appendChild(p);
 }
 
 
@@ -30,20 +48,28 @@ function renderStatusMessage(containerElement, message) {
 
 
 function sanitizeSearchQuery(input) {
-    // TODO: Implement sanitization.
-    // Requirements:
-    //   - Allow only letters, digits, spaces, hyphens, underscores
-    //   - Trim leading/trailing whitespace before processing
-    //   - Max 40 characters
-    //   - Return null if the result is empty after sanitization
-    return input;   // UNSAFE – returns raw input unchanged
+    let sanitized = input.trim();
+    sanitized = sanitized.replace(/[^a-zA-Z0-9 \-_]/g, '');
+    if (sanitized.length === 0) {
+        return null;
+    }
+
+    return sanitized.substring(0, 40);
 }
+
+
 
 function performSearch(query) {
     const sanitized = sanitizeSearchQuery(query);
     const label = document.getElementById("search-label");
-    label.innerHTML = "Showing results for: " + sanitized;  // UNSAFE
+    //After changing the inner HTML 
+    if (sanitized) {
+        label.textContent = "Showing results for: " + sanitized;
+    } else {
+        label.textContent = ""; 
+    }
 }
+
 
 
 
