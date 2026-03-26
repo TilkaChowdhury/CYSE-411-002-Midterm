@@ -21,12 +21,21 @@ let currentFilter = "all";
 
 
 function loadDashboardState() {
-    const raw   = localStorage.getItem("dashboardState");
-    const state = JSON.parse(raw);             // No try/catch
-    currentFilter = state.filter;              // No enum validation
-    applyFilter(currentFilter);
-}
+    try {
+        const raw = localStorage.getItem("dashboardState");
+        if (!raw) return;
+        const state = JSON.parse(raw); 
 
+        if (state && ACCEPTED_FILTERS.includes(state.filter)) {
+            currentFilter = state.filter;              
+            applyFilter(currentFilter);
+            const filterInput = document.getElementById("filter-select");
+            if (filterInput) filterInput.value = currentFilter;
+        }
+    } catch (e) {
+        console.error("Dashboard state failed to load", e);
+    }
+}
 
 //  Q5.C  Dashboard State – Save
 //  Writes the selected filter back to localStorage after a fetch.
@@ -37,11 +46,14 @@ function loadDashboardState() {
 
 function saveDashboardState() {
     const filterInput = document.getElementById("filter-select");
-    const filter      = filterInput.value;    // Not validated before storing
-    localStorage.setItem("dashboardState", JSON.stringify({ filter: filter }));
-    currentFilter = filter;
-}
+    const filter      = filterInput.value;
 
+    // VALIDATION- this ensures the filter is in our accepted list before saving
+    if (ACCEPTED_FILTERS.includes(filter)) {
+        localStorage.setItem("dashboardState", JSON.stringify({ filter: filter }));
+        currentFilter = filter;
+    }
+}
 
 
 //  Q5.A  Fetch Incidents
@@ -54,10 +66,20 @@ function saveDashboardState() {
 //    crash the function with an unhandled rejection.
 
 
-async function fetchIncidents() {
-    const res  = fetch("/api/incidents");      // Missing await
-    const data = res.json();                   // Missing await; res is a Promise
-    return data;
+async function fetchIncidents() {                 // Missing await; res is a Promise
+    try {
+        //  this Properly awaits the fetch call
+        const res = await fetch("/api/incidents");
+                                           // To Check if the response is successful between status 200-299
+        if (!res.ok) {
+            throw new Error("HTTP error! status: " + res.status);
+        }
+        const data = await res.json();
+        return data;
+    } catch (err) {
+        console.error("Fetch failed:", err);  //returning empty array, preventing the app from crashing 
+        return [];
+    }
 }
 
 
@@ -71,21 +93,34 @@ async function fetchIncidents() {
 //    individual incident fields before rendering.
 
 
+
 function renderIncidents(incidents) {
     const container = document.getElementById("incident-list");
-    container.innerHTML = "";                  // Clear previous results
+    container.textContent = ""; 
 
+    if (!Array.isArray(incidents)){
+        console.error("Invalid data format.");
+        return;
+    }
+    
     incidents.forEach(function (incident) {
-        const item = document.createElement("li");
-        // UNSAFE – directly inserts API response as HTML
-        item.innerHTML =
-            "<strong>" + incident.title + "</strong>" +
-            " <span class='severity severity-" + incident.severity + "'>" +
-            incident.severity + "</span>";
-        container.appendChild(item);
-    });
-}
+        if (typeof incident.title === 'string' && ACCEPTED_SEVERITIES.includes(incident.severity)) {
+            const item = document.createElement("li");
 
+            const titleEl = document.createElement("strong");
+            titleEl.textContent = incident.title;
+
+            const badge = document.createElement("span");
+            badge.className = "severity severity-" + incident.severity;
+            badge.textContent = incident.severity;
+
+            item.appendChild(titleEl);
+            item.insertAdjacentText('beforeend', ' '); 
+            item.appendChild(badge);
+            container.appendChild(item);
+        }
+    }); 
+}
 
 
 //  Filter Helper (provided – do not modify)
